@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -61,43 +60,10 @@ jobs:
           echo "PROJECT_DIR=$ROOT_DIR" >> $GITHUB_ENV
           echo "Project root: $ROOT_DIR"
 
-      - name: Patch settings.gradle (add plugin repositories if missing)
-        shell: bash
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          set -e
-          if ! grep -q "pluginManagement" settings.gradle; then
-            echo "Patching settings.gradle..."
-            TMP=$(mktemp)
-            printf '%s\n' \
-'pluginManagement {' \
-'  repositories {' \
-'    google()' \
-'    mavenCentral()' \
-'    gradlePluginPortal()' \
-'  }' \
-'}' \
-'dependencyResolutionManagement {' \
-'  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)' \
-'  repositories {' \
-'    google()' \
-'    mavenCentral()' \
-'  }' \
-'}' \
-> "$TMP"
-            cat settings.gradle >> "$TMP"
-            mv "$TMP" settings.gradle
-          else
-            echo "settings.gradle already has pluginManagement."
-          fi
-          echo "---- settings.gradle ----"
-          cat settings.gradle
-
-      - name: Ensure Gradle wrapper (use Gradle 8.2.1)
+      - name: Ensure Gradle wrapper (Gradle 8.2.1)
         shell: bash
         run: |
           if [ ! -f "$PROJECT_DIR/gradlew" ]; then
-            echo "Creating Gradle wrapper..."
             curl -s "https://get.sdkman.io" | bash
             source "$HOME/.sdkman/bin/sdkman-init.sh"
             sdk install gradle 8.2.1
