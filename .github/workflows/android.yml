@@ -47,13 +47,13 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
           echo "Project root: $PROJECT_DIR"
 
-      - name: Patch settings.gradle (add pluginManagement repositories)
+      - name: Patch settings.gradle (add pluginManagement and dependencyResolutionManagement)
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           if ! grep -q "pluginManagement" settings.gradle; then
             cp settings.gradle settings.gradle.bak
-            { printf 'pluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}\n'; cat settings.gradle.bak; } > settings.gradle
+            { printf 'pluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}\n\ndependencyResolutionManagement {\n  repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)\n  repositories {\n    google()\n    mavenCentral()\n  }\n}\n'; cat settings.gradle.bak; } > settings.gradle
           fi
 
       - name: Ensure Gradle wrapper (Gradle 8.2.1)
