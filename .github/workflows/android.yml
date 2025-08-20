@@ -30,7 +30,7 @@ jobs:
       - name: Install unzip
         run: sudo apt-get update && sudo apt-get install -y unzip
 
-      # این بخش خودش اولین فایل ZIP موجود در ریشه‌ی ریپو را انتخاب می‌کند
+      # ➊ خودش اولین فایل ZIP موجود در ریشه‌ی ریپو را انتخاب می‌کند
       - name: Pick project ZIP
         shell: bash
         run: |
@@ -42,23 +42,53 @@ jobs:
             exit 1
           fi
           echo "ZIP_FILE=${files[0]}" >> $GITHUB_ENV
-          echo "✅ استفاده از ZIP: ${files[0]}"
+          echo "✅ ZIP انتخاب شد: ${files[0]}"
 
       - name: Unzip project
         run: unzip -o "$ZIP_FILE" -d project
 
-      - name: Generate Gradle wrapper and build
-        working-directory: project
+      - name: Debug list after unzip
         run: |
-          curl -s "https://get.sdkman.io" | bash
-          source "$HOME/.sdkman/bin/sdkman-init.sh"
-          sdk install gradle 8.6
-          gradle wrapper --gradle-version 8.6
-          chmod +x ./gradlew
-          ./gradlew --no-daemon clean assembleDebug
+          echo "=== project ==="
+          ls -la project
+          echo "=== project (tree 2-level) ==="
+          find project -maxdepth 2 -type f -printf "%P\n" | sort | head -n 200
+
+      # ➋ ریشه‌ی واقعی پروژه‌ی اندروید را پیدا می‌کند (جایی که settings.gradle هست)
+      - name: Detect Gradle project root
+        id: detect
+        shell: bash
+        run: |
+          set -e
+          ROOT_DIR=$(find project -maxdepth 3 -name "settings.gradle" -print -quit)
+          if [ -z "$ROOT_DIR" ]; then
+            echo "❌ settings.gradle پیدا نشد. ساختار ZIP را چک کنید."
+            exit 1
+          fi
+          ROOT_DIR=$(dirname "$ROOT_DIR")
+          echo "PROJECT_DIR=$ROOT_DIR" >> $GITHUB_ENV
+          echo "✅ ریشه‌ی پروژه: $ROOT_DIR"
+
+      # ➌ اگر gradlew نبود، Gradle نصب می‌شود و wrapper ساخته می‌شود
+      - name: Ensure Gradle wrapper
+        shell: bash
+        run: |
+          if [ ! -f "$PROJECT_DIR/gradlew" ]; then
+            echo "⚠️ gradlew نیست؛ در حال نصب Gradle و ساخت wrapper..."
+            curl -s "https://get.sdkman.io" | bash
+            source "$HOME/.sdkman/bin/sdkman-init.sh"
+            sdk install gradle 8.6
+            (cd "$PROJECT_DIR" && gradle wrapper --gradle-version 8.6)
+          fi
+          chmod +x "$PROJECT_DIR/gradlew"
+          echo "✅ gradlew آماده است."
+
+      - name: Build Debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew --no-daemon clean assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: SmartRecipeApp-Debug
-          path: project/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
