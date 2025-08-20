@@ -43,21 +43,31 @@ jobs:
             find project -maxdepth 3 -print
             exit 1
           fi
-          ROOT_DIR=$(dirname "$ROOT_FILE")
-          echo "PROJECT_DIR=$ROOT_DIR" >> $GITHUB_ENV
-          echo "Project root: $ROOT_DIR"
+          PROJECT_DIR=$(dirname "$ROOT_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Project root: $PROJECT_DIR"
 
-      - name: Ensure Gradle wrapper (use Gradle 8.2.1)
+      - name: Patch settings.gradle (add pluginManagement repositories)
         shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          if [ ! -f "$PROJECT_DIR/gradlew" ]; then
+          if ! grep -q "pluginManagement" settings.gradle; then
+            cp settings.gradle settings.gradle.bak
+            { printf 'pluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}\n'; cat settings.gradle.bak; } > settings.gradle
+          fi
+
+      - name: Ensure Gradle wrapper (Gradle 8.2.1)
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          if [ ! -f "gradlew" ]; then
             echo "Creating Gradle wrapper..."
             curl -s "https://get.sdkman.io" | bash
             source "$HOME/.sdkman/bin/sdkman-init.sh"
             sdk install gradle 8.2.1
-            (cd "$PROJECT_DIR" && gradle wrapper --gradle-version 8.2.1)
+            gradle wrapper --gradle-version 8.2.1
           fi
-          chmod +x "$PROJECT_DIR/gradlew"
+          chmod +x gradlew
 
       - name: Build Debug APK
         working-directory: ${{ env.PROJECT_DIR }}
