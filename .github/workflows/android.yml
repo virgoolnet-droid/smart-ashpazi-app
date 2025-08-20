@@ -30,8 +30,7 @@ jobs:
       - name: Install unzip
         run: sudo apt-get update && sudo apt-get install -y unzip
 
-      # pick first ZIP at repo root
-      - name: Pick project ZIP
+      - name: Pick project ZIP at repo root
         shell: bash
         run: |
           shopt -s nullglob
@@ -62,8 +61,7 @@ jobs:
           echo "PROJECT_DIR=$ROOT_DIR" >> $GITHUB_ENV
           echo "Project root: $ROOT_DIR"
 
-      # add plugin repositories to settings.gradle if missing
-      - name: Patch settings.gradle (pluginManagement + repositories)
+      - name: Patch settings.gradle (add plugin repositories if missing)
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -71,22 +69,22 @@ jobs:
           if ! grep -q "pluginManagement" settings.gradle; then
             echo "Patching settings.gradle..."
             TMP=$(mktemp)
-            cat > "$TMP" <<'EOF'
-pluginManagement {
-  repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
-  }
-}
-dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories {
-    google()
-    mavenCentral()
-  }
-}
-EOF
+            printf '%s\n' \
+'pluginManagement {' \
+'  repositories {' \
+'    google()' \
+'    mavenCentral()' \
+'    gradlePluginPortal()' \
+'  }' \
+'}' \
+'dependencyResolutionManagement {' \
+'  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)' \
+'  repositories {' \
+'    google()' \
+'    mavenCentral()' \
+'  }' \
+'}' \
+> "$TMP"
             cat settings.gradle >> "$TMP"
             mv "$TMP" settings.gradle
           else
@@ -95,8 +93,7 @@ EOF
           echo "---- settings.gradle ----"
           cat settings.gradle
 
-      # ensure Gradle wrapper (use Gradle 8.2.1, compatible with AGP 8.1.x)
-      - name: Ensure Gradle wrapper (Gradle 8.2.1)
+      - name: Ensure Gradle wrapper (use Gradle 8.2.1)
         shell: bash
         run: |
           if [ ! -f "$PROJECT_DIR/gradlew" ]; then
