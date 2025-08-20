@@ -30,7 +30,7 @@ jobs:
       - name: Install unzip
         run: sudo apt-get update && sudo apt-get install -y unzip
 
-      # ➊ خودش اولین فایل ZIP موجود در ریشه‌ی ریپو را انتخاب می‌کند
+      # ➊ اولین ZIP ریشه‌ی ریپو را بردار
       - name: Pick project ZIP
         shell: bash
         run: |
@@ -47,41 +47,66 @@ jobs:
       - name: Unzip project
         run: unzip -o "$ZIP_FILE" -d project
 
-      - name: Debug list after unzip
-        run: |
-          echo "=== project ==="
-          ls -la project
-          echo "=== project (tree 2-level) ==="
-          find project -maxdepth 2 -type f -printf "%P\n" | sort | head -n 200
-
-      # ➋ ریشه‌ی واقعی پروژه‌ی اندروید را پیدا می‌کند (جایی که settings.gradle هست)
-      - name: Detect Gradle project root
+      - name: Detect Gradle project root (settings.gradle)
         id: detect
         shell: bash
         run: |
           set -e
-          ROOT_DIR=$(find project -maxdepth 3 -name "settings.gradle" -print -quit)
-          if [ -z "$ROOT_DIR" ]; then
-            echo "❌ settings.gradle پیدا نشد. ساختار ZIP را چک کنید."
+          ROOT_FILE=$(find project -maxdepth 3 -name "settings.gradle" -print -quit)
+          if [ -z "$ROOT_FILE" ]; then
+            echo "❌ settings.gradle پیدا نشد."
+            find project -maxdepth 3 -print
             exit 1
           fi
-          ROOT_DIR=$(dirname "$ROOT_DIR")
+          ROOT_DIR=$(dirname "$ROOT_FILE")
           echo "PROJECT_DIR=$ROOT_DIR" >> $GITHUB_ENV
           echo "✅ ریشه‌ی پروژه: $ROOT_DIR"
 
-      # ➌ اگر gradlew نبود، Gradle نصب می‌شود و wrapper ساخته می‌شود
-      - name: Ensure Gradle wrapper
+      # ➋ افزودن مخازن موردنیاز برای پلاگین‌ها (google/mavenCentral/pluginPortal)
+      - name: Patch settings.gradle (pluginManagement + repositories)
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          if ! grep -q "pluginManagement" settings.gradle; then
+            echo "⚙️ افزودن pluginManagement و dependencyResolutionManagement به settings.gradle"
+            TMP=$(mktemp)
+            cat > "$TMP" <<'EOF'
+pluginManagement {
+  repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+  }
+}
+dependencyResolutionManagement {
+  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+EOF
+            cat settings.gradle >> "$TMP"
+            mv "$TMP" settings.gradle
+          else
+            echo "✅ settings.gradle قبلاً pluginManagement دارد."
+          fi
+          echo "---- settings.gradle ----"
+          cat settings.gradle
+
+      # ➌ اگر gradlew نیست، Gradle سازگار نصب و wrapper ساخته شود (8.2.1 مناسب AGP 8.1.0)
+      - name: Ensure Gradle wrapper (Gradle 8.2.1)
         shell: bash
         run: |
           if [ ! -f "$PROJECT_DIR/gradlew" ]; then
-            echo "⚠️ gradlew نیست؛ در حال نصب Gradle و ساخت wrapper..."
+            echo "⚠️ gradlew نیست؛ نصب Gradle 8.2.1 و ساخت wrapper..."
             curl -s "https://get.sdkman.io" | bash
             source "$HOME/.sdkman/bin/sdkman-init.sh"
-            sdk install gradle 8.6
-            (cd "$PROJECT_DIR" && gradle wrapper --gradle-version 8.6)
+            sdk install gradle 8.2.1
+            (cd "$PROJECT_DIR" && gradle wrapper --gradle-version 8.2.1)
           fi
           chmod +x "$PROJECT_DIR/gradlew"
-          echo "✅ gradlew آماده است."
+          echo "✅ gradlew آماده شد."
 
       - name: Build Debug APK
         working-directory: ${{ env.PROJECT_DIR }}
