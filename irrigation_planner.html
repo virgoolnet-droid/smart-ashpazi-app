@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Irrigation System Designer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    canvas { border:1px solid #333; margin-top:20px; }
+    .form-group { margin-bottom: 10px; }
+    label { display:block; margin-bottom:4px; }
+  </style>
+</head>
+<body>
+  <h1>Irrigation System Designer</h1>
+  <div id="controls">
+    <div class="form-group">
+      <label>Field Width (m):<input id="width" type="number" value="100"></label>
+    </div>
+    <div class="form-group">
+      <label>Field Length (m):<input id="height" type="number" value="60"></label>
+    </div>
+    <div class="form-group">
+      <label>Row Spacing (m):<input id="rowSpacing" type="number" value="6"></label>
+    </div>
+    <div class="form-group">
+      <label>Tree Spacing (m):<input id="treeSpacing" type="number" value="5"></label>
+    </div>
+    <div class="form-group">
+      <label>Watering Sessions:<input id="wateringSessions" type="number" value="2"></label>
+    </div>
+    <div class="form-group">
+      <label>Land Slope (%):<input id="slope" type="number" value="2"></label>
+    </div>
+    <div class="form-group">
+      <label>Tree Age (years):<input id="treeAge" type="number" value="5"></label>
+    </div>
+    <div class="form-group">
+      <label>Pool Location:
+        <select id="poolLocation">
+          <option value="NW">North-West</option>
+          <option value="NE">North-East</option>
+          <option value="SW">South-West</option>
+          <option value="SE">South-East</option>
+        </select>
+      </label>
+    </div>
+    <button onclick="designSystem()">Design</button>
+  </div>
+
+  <canvas id="field" width="600" height="400"></canvas>
+
+  <script>
+    function designSystem(){
+      const width = parseFloat(document.getElementById('width').value);
+      const height = parseFloat(document.getElementById('height').value);
+      const rowSpacing = parseFloat(document.getElementById('rowSpacing').value);
+      const treeSpacing = parseFloat(document.getElementById('treeSpacing').value);
+      const poolLoc = document.getElementById('poolLocation').value;
+
+      const rows = Math.floor(width / rowSpacing);
+      const treesPerRow = Math.floor(height / treeSpacing);
+
+      const canvas = document.getElementById('field');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      // scale factor to fit drawing
+      const scaleX = canvas.width / width;
+      const scaleY = canvas.height / height;
+
+      // draw field rectangle
+      ctx.strokeStyle = '#000';
+      ctx.strokeRect(0,0,width*scaleX,height*scaleY);
+
+      // pool coordinates
+      let poolX = 0, poolY = 0;
+      if(poolLoc === 'NE'){ poolX = width*scaleX; poolY = 0; }
+      else if(poolLoc === 'SW'){ poolX = 0; poolY = height*scaleY; }
+      else if(poolLoc === 'SE'){ poolX = width*scaleX; poolY = height*scaleY; }
+      ctx.fillStyle = 'blue';
+      ctx.fillRect(poolX-5,poolY-5,10,10);
+
+      // main pipe along longest dimension passing through pool
+      ctx.strokeStyle = 'brown';
+      ctx.lineWidth = 4;
+      if(width >= height){
+        // horizontal main pipe
+        ctx.beginPath();
+        ctx.moveTo(0, poolY);
+        ctx.lineTo(width*scaleX, poolY);
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        // branch pipes
+        for(let i=0;i<rows;i++){
+          const x = (i+0.5)*rowSpacing*scaleX;
+          ctx.beginPath();
+          ctx.moveTo(x, poolY);
+          ctx.lineTo(x, height*scaleY);
+          ctx.stroke();
+          // trees on branch
+          for(let t=0;t<treesPerRow;t++){
+            const y = (t+0.5)*treeSpacing*scaleY;
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+      } else {
+        // vertical main pipe
+        ctx.beginPath();
+        ctx.moveTo(poolX,0);
+        ctx.lineTo(poolX,height*scaleY);
+        ctx.stroke();
+        ctx.lineWidth = 2;
+        for(let i=0;i<rows;i++){
+          const y = (i+0.5)*rowSpacing*scaleY;
+          ctx.beginPath();
+          ctx.moveTo(poolX, y);
+          ctx.lineTo(width*scaleX, y);
+          ctx.stroke();
+          for(let t=0;t<treesPerRow;t++){
+            const x = (t+0.5)*treeSpacing*scaleX;
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    designSystem();
+  </script>
+</body>
+</html>
